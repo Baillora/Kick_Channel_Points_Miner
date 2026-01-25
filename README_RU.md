@@ -30,7 +30,6 @@
     ```bash
     pip install -r requirements.txt
     ```
-    *(Убедитесь, что установлены `playwright`, `curl_cffi`, `aiogram`, `flask`, `loguru`)*.
 
 3.  **Настройка**: Переименуйте `config.example.json` в `config.json` и заполните его.
 
