@@ -30,7 +30,6 @@ A powerful, asynchronous bot for automatically farming channel points on **Kick.
     ```bash
     pip install -r requirements.txt
     ```
-    *(Ensure you have `playwright`, `curl_cffi`, `aiogram`, `flask`, `loguru` installed)*.
 
 3.  **Configure**: Rename `config.example.json` to `config.json` (or create one) and fill it out.
 
