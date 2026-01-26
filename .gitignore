@@ -30,5 +30,5 @@ debug.log
 .DS_Store
 Thumbs.db
 
-# 🔹 Playwright browsers (они тяжелые)
+# 🔹 Playwright browsers
 ms-playwright/
