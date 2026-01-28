@@ -140,5 +140,6 @@
   "points_success": "✅ Balance successfully retrieved",
   "livestream_api_status": "Livestream API Status: {status}",
   "livestream_data": "Livestream data received",
-  "channel_data_response": "Channel data response received"
+  "channel_data_response": "Channel data response received",
+  "error_getting_livestream": "❌ Error getting livestream: {error}"
 }

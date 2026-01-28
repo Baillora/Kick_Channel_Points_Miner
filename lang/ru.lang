@@ -140,5 +140,6 @@
   "points_success": "✅ Баланс успешно получен",
   "livestream_api_status": "Статус API стрима: {status}",
   "livestream_data": "Данные стрима получены",
-  "channel_data_response": "Ответ данных канала получен"
+  "channel_data_response": "Ответ данных канала получен",
+  "error_getting_livestream": "❌ Ошибка получения livestream: {error}"
 }
