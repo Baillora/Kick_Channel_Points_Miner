@@ -12,7 +12,7 @@ shared_context = {
     "points": {},
     "last_update": {},
     "status": "Initializing",
-    "stream_status": {}  # ← ДОБАВЛЕНО: online/offline для каждого стримера
+    "stream_status": {}
 }
 
 
@@ -332,7 +332,7 @@ def get_data():
         "points": shared_context["points"],
         "last_update": clean_last_update,
         "status": shared_context["status"],
-        "stream_status": shared_context["stream_status"]  # ← ДОБАВЛЕНО
+        "stream_status": shared_context["stream_status"]
     })
 
 
@@ -352,7 +352,7 @@ def start_server(streamers_list, port=5000):
     t.start()
 
 
-def update_streamer_info(name, points, last_update_time, stream_id=None):  # ← ДОБАВЛЕН stream_id
+def update_streamer_info(name, points, last_update_time, stream_id=None):
     """Обновление информации о стримере
     
     Args:
@@ -371,3 +371,4 @@ def update_streamer_info(name, points, last_update_time, stream_id=None):  # ←
         shared_context["stream_status"][name] = "offline"
     
     logger.debug(f"📊 Updated {name}: {points} points, status: {shared_context['stream_status'][name]}")
+
