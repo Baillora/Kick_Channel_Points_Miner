@@ -1,24 +1,59 @@
 {
   "Language": "en",
   "Debug": false,
+
   "WebDashboard": {
     "enabled": true,
     "port": 5000
   },
+
   "Telegram": {
-    "enabled": true,
+    "enabled": false,
     "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
     "chat_id": "YOUR_TELEGRAM_USER_ID",
-    "allowed_users": [
-        123456789
-    ]
+    "allowed_users": [123456789]
   },
-  "Private": {
-    "token": "YOUR_KICK_TOKEN_OR_COOKIE_STRING"
+
+  "Discord": {
+    "enabled": false,
+    "webhook_url": "https://discord.com/api/webhooks/XXXX/YYYY",
+    "username": "Baillora KickMiner",
+    "avatar_url": "",
+    "notify_points": true,
+    "notify_status_change": true,
+    "notify_errors": true,
+    "notify_startup": true,
+    "min_points_gain": 10,
+    "color_success": 3461464,
+    "color_info": 5793266,
+    "color_warning": 16763904,
+    "color_error": 15746887
   },
-  "Streamers": [
-    "stream1",
-    "stream2",
-    "stream3"
-  ]
+  
+  "Proxy": {
+    "enabled": false,
+    "url": "socks5://user:password@host:port"
+  },
+
+  "Accounts": [
+    {
+      "alias": "Main Account",
+      "token": "YOUR_KICK_TOKEN_1",
+      "proxy": null,
+      "streamers": ["streamer1", "streamer2", "streamer3"],
+      "max_concurrent": 2
+    },
+    {
+      "alias": "Second Account",
+      "token": "YOUR_KICK_TOKEN_2",
+      "proxy": "socks5://user:pass@proxy2:1080",
+      "streamers": ["streamer2", "streamer3", "streamer4"],
+      "max_concurrent": 1
+    }
+  ],
+
+  "Check_interval": 120,
+  "Reconnect_cooldown": 600,
+  "Connection_stagger_min": 3,
+  "Connection_stagger_max": 8
 }
