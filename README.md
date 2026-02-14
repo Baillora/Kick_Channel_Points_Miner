@@ -66,6 +66,22 @@ A powerful, asynchronous bot for automatically farming channel points on **Kick.
     "allowed_users": [123456789]
   },
 
+  "Discord": {
+    "enabled": false,
+    "webhook_url": "https://discord.com/api/webhooks/XXXX/YYYY",
+    "username": "Baillora KickMiner",
+    "avatar_url": "",
+    "notify_points": true,
+    "notify_status_change": true,
+    "notify_errors": true,
+    "notify_startup": true,
+    "min_points_gain": 10,
+    "color_success": 3461464,
+    "color_info": 5793266,
+    "color_warning": 16763904,
+    "color_error": 15746887
+  },
+  
   "Proxy": {
     "enabled": false,
     "url": "socks5://user:password@host:port"
