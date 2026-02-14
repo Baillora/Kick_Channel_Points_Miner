@@ -20,5 +20,6 @@
   "btn_status": "📊 Status",
   "btn_balance": "💰 Balance",
   "btn_help": "❓ Help",
-  "btn_restart": "🔄 Restart"
+  "btn_restart": "🔄 Restart",
+  "btn_accounts": "👥 Accounts"
 }

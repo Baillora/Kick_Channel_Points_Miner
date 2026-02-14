@@ -8,210 +8,271 @@ from localization import t
 
 
 class KickPoints:
-    def __init__(self, token: str):
+    def __init__(self, token: str, proxy: str = None):
         self.token = token
-        
-        # Создаём сессию curl_cffi с Chrome 120 fingerprint
-        self.session = requests.Session(impersonate="chrome120")
-        
-        # Необходимые заголовки
+        self.proxy = proxy
+
+        proxies = None
+        if proxy:
+            proxies = {"http": proxy, "https": proxy}
+
+        self.session = requests.Session(
+            impersonate="chrome120",
+            proxies=proxies,
+        )
+
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
             "Origin": "https://kick.com",
             "Referer": "https://kick.com/",
-            "Sec-Ch-Ua": '"Chromium";v="120", "Google Chrome";v="120", "Not?A_Brand";v="99"',
+            "Sec-Ch-Ua": (
+                '"Chromium";v="120", "Google Chrome";v="120", '
+                '"Not?A_Brand";v="99"'
+            ),
             "Sec-Ch-Ua-Mobile": "?0",
             "Sec-Ch-Ua-Platform": '"Windows"',
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
-            "X-Client-Token": "e1393935a959b4020a4491574f6490129f678acdaa92760471263db43487f823",
+            "X-Client-Token": (
+                "e1393935a959b4020a4491574f6490129f678acdaa92760471263db43487f823"
+            ),
             "X-Requested-With": "XMLHttpRequest",
             "Authorization": f"Bearer {self.token}",
-            "Connection": "keep-alive"
+            "Connection": "keep-alive",
         })
-        
-        self._initialize_session()
-    
-    def _initialize_session(self):
-        """Инициализация сессии с обходом Cloudflare через curl_cffi"""
+
+        self._initialized = False
+
+
+    def _ensure_session(self):
+        if self._initialized:
+            return
+
         try:
             logger.info(t("initializing_session"))
-            
-            # curl_cffi автоматически обходит Cloudflare с правильным TLS fingerprint
             response = self.session.get("https://kick.com", timeout=15)
-            
-            logger.debug(t("base_page_status", status=response.status_code))
+            logger.debug(t(
+                "base_page_status", status=response.status_code
+            ))
+
             if response.status_code == 200:
                 logger.success(t("bypass_success"))
-                logger.debug(t("cookies_after_bypass", cookies=dict(self.session.cookies)))
+                logger.debug(t(
+                    "cookies_after_bypass",
+                    cookies=dict(self.session.cookies),
+                ))
+            elif response.status_code == 403:
+                logger.error(
+                    "403 при инициализации — "
+                    "IP заблокирован или нужен другой прокси"
+                )
             else:
-                logger.error(t("failed_bypass", status=response.status_code))
-                logger.debug(t("response_content", content=response.text[:500]))
-            
-            # Устанавливаем необходимые куки
-            essential_cookies = {
-                "cookie_preferences_set_v1": "%7B%22state%22%3A%7B%22preferences%22%3A%7B%22necessary%22%3Atrue%2C%22functional%22%3Atrue%2C%22performance%22%3Atrue%2C%22targeting%22%3Atrue%2C%22userHasMadeChoice%22%3Atrue%7D%2C%22functionalEnabled%22%3Atrue%2C%22performanceEnabled%22%3Atrue%2C%22targetingEnabled%22%3Atrue%7D%2C%22version%22%3A0%7D",
+                logger.error(t(
+                    "failed_bypass", status=response.status_code
+                ))
+
+            for name, value in {
                 "showMatureContent": "true",
-                "USER_LOCALE": "en"
-            }
-            
-            for name, value in essential_cookies.items():
-                self.session.cookies.set(name, value, domain="kick.com")
-            
+                "USER_LOCALE": "en",
+            }.items():
+                self.session.cookies.set(
+                    name, value, domain="kick.com"
+                )
+
             time.sleep(random.uniform(0.5, 1.5))
-            
+            self._initialized = True
+
         except Exception as e:
             logger.error(t("session_init_error", error=str(e)))
-            logger.debug(t("init_traceback", traceback=traceback.format_exc()))
-    
-    def _decompress_response(self, response):
-        """Обработка ответа (curl_cffi делает декомпрессию автоматически)"""
-        content = response.content
-        
+            logger.debug(t(
+                "init_traceback", traceback=traceback.format_exc()
+            ))
+
+    def _reinitialize_session(self):
+        logger.warning("Переинициализация сессии ws_token...")
+        self._initialized = False
+        self._ensure_session()
+
+
+    def _parse_json(self, response) -> dict | None:
         try:
-            # Проверяем, распакованы ли данные уже
-            try:
-                json.loads(content.decode('utf-8', errors='ignore'))
-                return content.decode('utf-8', errors='ignore')
-            except:
-                pass
-            
-            # Если не получилось, пытаемся просто декодировать
-            return content.decode('utf-8', errors='ignore')
-                
+            text = response.content.decode("utf-8", errors="ignore")
+            return json.loads(text)
         except Exception as e:
-            logger.error(t("decompression_failed", error=str(e)))
-            try:
-                return content.decode('utf-8', errors='ignore')
-            except:
-                return str(content)
-    
-    def get_ws_token(self, streamer_name: str) -> str:
-        """Получаем WebSocket токен с обходом Cloudflare"""
-        
-        # Проверяем наличие критических куки Cloudflare
-        if "cf_clearance" not in self.session.cookies and "__cf_bm" not in self.session.cookies:
-            logger.warning(t("no_cloudflare_cookies"))
-            self._initialize_session()
-        
+            logger.error(t("json_parsing_error", error=str(e)))
+            return None
+
+    def _safe_get(self, data, *keys):
+        current = data
+        for key in keys:
+            if not isinstance(current, dict):
+                return None
+            current = current.get(key)
+            if current is None:
+                return None
+        return current
+
+    def close(self):
         try:
-            logger.info(t("getting_channel_data", streamer=streamer_name))
-            
-            # Получаем информацию о канале
-            channel_url = f"https://kick.com/api/v2/channels/{streamer_name}"
+            self.session.close()
+        except Exception:
+            pass
+
+
+    def get_ws_token(self, streamer_name: str) -> str | None:
+        self._ensure_session()
+
+        try:
+            # Шаг 1: Данные канала
+            logger.info(t(
+                "getting_channel_data", streamer=streamer_name
+            ))
+
             channel_headers = {
                 "Referer": f"https://kick.com/{streamer_name}/",
                 "Origin": "https://kick.com",
                 "Accept": "application/json, text/plain, */*",
-                "Accept-Encoding": "gzip, deflate, br"
             }
-            
+
             channel_response = self.session.get(
-                channel_url, 
+                f"https://kick.com/api/v2/channels/{streamer_name}",
                 headers=channel_headers,
-                timeout=15
+                timeout=15,
             )
-            logger.debug(t("channel_api_status", status=channel_response.status_code))
-            
-            if channel_response.status_code != 200:
-                logger.error(t("failed_get_channel_data", status=channel_response.status_code))
-                logger.debug(t("response_headers", headers=dict(channel_response.headers)))
-                logger.debug(t("channel_response_content", content=channel_response.text[:500]))
+
+            status = channel_response.status_code
+            logger.debug(t("channel_api_status", status=status))
+
+            # Обработка 403 с retry
+            if status == 403:
+                logger.warning(
+                    f"403 для {streamer_name} — переинициализация"
+                )
+                self._reinitialize_session()
+
+                channel_response = self.session.get(
+                    f"https://kick.com/api/v2/channels/{streamer_name}",
+                    headers=channel_headers,
+                    timeout=15,
+                )
+                status = channel_response.status_code
+
+                if status == 403:
+                    logger.error(
+                        f"Повторный 403 для {streamer_name}"
+                    )
+                    return None
+
+            if status != 200:
+                logger.error(t(
+                    "failed_get_channel_data", status=status
+                ))
                 return None
-            
-            # Распаковываем и парсим ответ
-            try:
-                response_text = self._decompress_response(channel_response)
-                channel_data = json.loads(response_text)
-                logger.debug(t("channel_data_structure", data=json.dumps(channel_data, indent=2)[:300]))
-            except Exception as e:
-                logger.error(t("json_parsing_error", error=str(e)))
-                logger.debug(t("response_text", text=response_text[:500]))
+
+            channel_data = self._parse_json(channel_response)
+            if not channel_data:
                 return None
-            
-            # Определяем структуру ответа
-            if 'data' in channel_data:
-                # Старая структура
-                channel_info = channel_data['data']
-            elif 'id' in channel_data:
-                # Новая структура
+
+            # Определяем структуру
+            if "data" in channel_data and isinstance(
+                channel_data["data"], dict
+            ):
+                channel_info = channel_data["data"]
+            elif "id" in channel_data:
                 channel_info = channel_data
             else:
                 logger.error(t("unexpected_structure"))
                 return None
-            
-            channel_id = channel_info.get('id')
-            user_id = channel_info.get('user_id') or channel_info.get('user', {}).get('id')
-            
+
+            channel_id = channel_info.get("id")
+            user_id = (
+                channel_info.get("user_id")
+                or self._safe_get(channel_info, "user", "id")
+            )
+
             if not channel_id:
                 logger.error(t("channel_id_not_found"))
                 return None
-            
+
             if not user_id:
                 logger.warning(t("user_id_not_found"))
                 user_id = channel_id
-            
-            logger.info(t("channel_ids_info", channel_id=channel_id, user_id=user_id))
-            
-            # Получаем токен для WebSocket
-            ws_url = "https://websockets.kick.com/viewer/v1/token"
+
+            logger.info(t(
+                "channel_ids_info",
+                channel_id=channel_id,
+                user_id=user_id,
+            ))
+
+            time.sleep(random.uniform(0.5, 1.5))
+
+            # Шаг 2: WS Token
             ws_headers = {
                 "Referer": f"https://kick.com/{streamer_name}/",
                 "Origin": "https://kick.com",
                 "Accept": "application/json, text/plain, */*",
                 "Content-Type": "application/json",
-                "Accept-Encoding": "gzip, deflate, br",
                 "X-Chatroom": str(channel_id),
-                "X-User-Id": str(user_id)
+                "X-User-Id": str(user_id),
             }
-            
+
             ws_response = self.session.get(
-                ws_url,
+                "https://websockets.kick.com/viewer/v1/token",
                 headers=ws_headers,
-                timeout=15
+                timeout=15,
             )
-            
-            logger.debug(t("websocket_token_api_status", status=ws_response.status_code))
-            
-            if ws_response.status_code != 200:
-                logger.error(t("failed_get_websocket_token", status=ws_response.status_code))
-                logger.debug(t("response", response=self._decompress_response(ws_response)))
+
+            ws_status = ws_response.status_code
+            logger.debug(t(
+                "websocket_token_api_status", status=ws_status
+            ))
+
+            if ws_status == 403:
+                logger.error(
+                    f"403 при WS-токене для {streamer_name}"
+                )
                 return None
-            
-            # Распаковываем и парсим ответ WebSocket токена
-            try:
-                ws_response_text = self._decompress_response(ws_response)
-                ws_data = json.loads(ws_response_text)
-                logger.debug(t("websocket_token_response", data=json.dumps(ws_data, indent=2)[:300]))
-            except Exception as e:
-                logger.error(t("websocket_json_parsing_error", error=str(e)))
-                logger.debug(t("websocket_response_text", text=ws_response_text[:500]))
+
+            if ws_status != 200:
+                logger.error(t(
+                    "failed_get_websocket_token", status=ws_status
+                ))
                 return None
-            
-            # Извлекаем токен
-            ws_token = None
-            if 'data' in ws_data:
-                if 'token' in ws_data['data']:
-                    ws_token = ws_data['data']['token']
-                elif 'websocket_token' in ws_data['data']:
-                    ws_token = ws_data['data']['websocket_token']
-            elif 'token' in ws_data:
-                ws_token = ws_data['token']
-            elif 'websocket_token' in ws_data:
-                ws_token = ws_data['websocket_token']
-            
+
+            ws_data = self._parse_json(ws_response)
+            if not ws_data:
+                return None
+
+            # Извлекаем токен из разных форматов
+            ws_token = (
+                self._safe_get(ws_data, "data", "token")
+                or self._safe_get(ws_data, "data", "websocket_token")
+                or self._safe_get(ws_data, "token")
+                or self._safe_get(ws_data, "websocket_token")
+            )
+
             if ws_token:
-                logger.success(t("websocket_success", token=ws_token))
+                logger.success(t(
+                    "websocket_success",
+                    token=ws_token[:20] + "...",
+                ))
                 return ws_token
-            
+
             logger.error(t("websocket_not_found"))
             return None
-            
+
         except Exception as e:
             logger.error(t("critical_error", error=str(e)))
-            logger.debug(t("critical_traceback", traceback=traceback.format_exc()))
+            logger.debug(t(
+                "critical_traceback",
+                traceback=traceback.format_exc(),
+            ))
             return None

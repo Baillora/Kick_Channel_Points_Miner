@@ -1,217 +1,115 @@
 import asyncio
 import json
-import traceback
-import random
 import sys
 import os
 import time
-from datetime import datetime, timedelta
-import subprocess
+import traceback
 
-from _websockets.ws_token import KickPoints
-from _websockets.ws_connect import KickWebSocket
-from utils.kick_utility import KickUtility
-from utils.get_points_amount import PointsAmount
-from localization import load_language, t
 from loguru import logger
+from localization import load_language, t
 
-from tg_bot.bot import TelegramBot
-
+from account_manager import AccountManager
+from discord_webhook import DiscordWebhook
 import web_server
 
-points_tracker = {}
-last_points_update = {}
-config = {}
-telegram_bot = None
+# тест памяти
+ENABLE_MEMORY_MONITOR = False 
 
-async def monitor_points_progress():
-    """проверяет, идут ли начисления"""
-    while True:
-        await asyncio.sleep(60)
-        
-        current_time = datetime.now()
-        streamers_to_restart = []
-        
-        for streamer_name, last_update in list(last_points_update.items()):
-            time_diff = current_time - last_update
-            
-            if time_diff > timedelta(minutes=10):
-                logger.warning(f"⚠️ {streamer_name}: No points for {int(time_diff.total_seconds()//60)} min")
-                streamers_to_restart.append(streamer_name)
-        
-        if streamers_to_restart:
-            logger.critical(f"🔄 Restart needed for: {', '.join(streamers_to_restart)}")
-            
-            if telegram_bot and telegram_bot.active:
-                await telegram_bot.send_alert(streamers_to_restart)
-                await telegram_bot.send_restart_notification()
-            
-            logger.info("Exiting for restart...")
-            os._exit(1)
-
-async def check_points_periodically(streamer_name, token, kick_utility):
-    """опрос баланса (API)"""
-    global points_tracker, last_points_update
-    
-    if streamer_name not in points_tracker:
-        points_tracker[streamer_name] = {"last": 0, "history": []}
-        last_points_update[streamer_name] = datetime.now()
-    
-    while True:
-        try:
-            await asyncio.sleep(random.randint(120, 180)) 
-            
-            stream_id = kick_utility.get_stream_id(token)
-            
-            points_amount = PointsAmount()
-            amount = points_amount.get_amount(streamer_name, token)
-            
-            if amount is None:
-                continue
-
-            current_time = datetime.now()
-            last_points_update[streamer_name] = current_time
-            
-            web_server.update_streamer_info(streamer_name, amount, current_time, stream_id)
-
-            if telegram_bot and telegram_bot.active:
-                telegram_bot.set_points_data(streamer_name, amount)
-
-            last_amount = points_tracker[streamer_name]["last"]
-            
-            if amount > last_amount:
-                gain = amount - last_amount
-                logger.success(f"💰 {streamer_name}: +{gain} (Total: {amount})")
-                
-                points_tracker[streamer_name]["last"] = amount
-                points_tracker[streamer_name]["history"].append((current_time, amount))
-                
-                if gain >= 10 and telegram_bot and telegram_bot.active:
-                    await telegram_bot.send_points_update(streamer_name, last_amount, amount)
-            
-            elif amount < last_amount:
-                points_tracker[streamer_name]["last"] = amount
-                
-        except Exception as e:
-            logger.error(f"Error checking points for {streamer_name}: {e}")
-
-
-async def handle_streamer(streamer_name):
-    """работа с WebSocket одного стримера"""
-    token = config['Private']['token']
-    
-    await asyncio.sleep(random.uniform(2, 10))
-    logger.info(f"🔌 Connecting to {streamer_name}...")
-    
+log_memory_usage = None
+if ENABLE_MEMORY_MONITOR:
     try:
-        kick_points = KickPoints(token)
-        ws_token = kick_points.get_ws_token(streamer_name)
-        
-        if not ws_token:
-            raise Exception("Failed to get WS Token")
-            
-        kick_utility = KickUtility(streamer_name)
-        stream_id = kick_utility.get_stream_id(token)
-        channel_id = kick_utility.get_channel_id(token)
-        
-        if not channel_id:
-             raise Exception("Failed to get Channel ID")
-        
-        points_amount = PointsAmount()
-        initial_points = points_amount.get_amount(streamer_name, token)
-        if initial_points is not None:
-            web_server.update_streamer_info(streamer_name, initial_points, datetime.now(), stream_id)
-        
-        kick_websocket_client = KickWebSocket({
-            "token": ws_token,
-            "streamId": stream_id if stream_id else 0,
-            "channelId": channel_id
-        })
-        
-        ws_task = asyncio.create_task(kick_websocket_client.connect())
-        points_task = asyncio.create_task(check_points_periodically(streamer_name, token, kick_utility))
-        
-        if telegram_bot and telegram_bot.active:
-            await telegram_bot.send_streamer_started(streamer_name)
-            
-        await asyncio.gather(ws_task, points_task)
-        
-    except Exception as e:
-        logger.error(f"❌ Error with {streamer_name}: {e}")
-        if telegram_bot and telegram_bot.active:
-            await telegram_bot.send_streamer_error(streamer_name, str(e))
+        from memory_monitor import log_memory_usage
+    except ImportError:
+        logger.warning("⚠️ memory_monitor.py не найден, хотя ENABLE_MEMORY_MONITOR=True")
+
+telegram_bot = None
+discord_hook = None
+account_manager = None
 
 async def main():
-    global config, telegram_bot
-    
-    # 1. Загрузка конфига
+    global account_manager, telegram_bot, discord_hook
+
+    # 1. Конфиг
     try:
         with open("config.json", "r", encoding="utf-8") as f:
             config = json.load(f)
-        
+
         logger.remove()
-
         log_level = "DEBUG" if config.get("Debug", False) else "INFO"
-        
         logger.add(sys.stderr, level=log_level)
-        logger.info(f"🔧 Log Level set to: {log_level}")
+        logger.info(f"🔧 Log level: {log_level}")
 
-        lang = config.get("Language", "en")
-        load_language(lang)
-        
+        load_language(config.get("Language", "en"))
+
     except Exception as e:
         logger.add(sys.stderr, level="INFO")
-        logger.critical(f"Config load error: {e}")
+        logger.critical(f"Ошибка загрузки конфига: {e}")
         return
 
-    streamer_names = config.get('Streamers', [])
+    # 2. Account Manager
+    account_manager = AccountManager(config)
+    all_streamers = account_manager.get_all_streamers_flat()
+    logger.info(f"📋 Всего уникальных стримеров: {len(all_streamers)}")
 
-    # 2. Telegram Bot
-    if config.get('Telegram', {}).get('enabled', False):
+    # 3. Discord Webhook
+    discord_hook = DiscordWebhook(config)
+    if discord_hook.enabled:
+        account_manager.set_discord(discord_hook)
+        logger.info("🟣 Discord webhook enabled")
+
+    # 4. Telegram
+    if config.get("Telegram", {}).get("enabled", False):
         try:
+            from tg_bot.bot import TelegramBot
             telegram_bot = TelegramBot(config)
-            telegram_bot.set_streamers(streamer_names)
-            await telegram_bot.start() 
+            telegram_bot.set_account_manager(account_manager)
+            await telegram_bot.start()
         except Exception as e:
-            logger.error(f"Telegram start failed: {e}")
+            logger.error(f"Telegram не запустился: {e}")
 
-    # 3. Web Dashboard
-    web_config = config.get("WebDashboard", {})
-    if web_config.get("enabled", False):
-        web_port = web_config.get("port", 5000)
+    # 5. Web Dashboard
+    web_cfg = config.get("WebDashboard", {})
+    if web_cfg.get("enabled", False):
+        port = web_cfg.get("port", 5000)
         try:
-            web_server.start_server(streamer_names, web_port)
-            logger.info(f"🌍 Web Dashboard enabled on port {web_port}")
+            web_server.start_server(account_manager, port)
+            logger.info(f"🌍 Web Dashboard: http://localhost:{port}")
         except Exception as e:
-            logger.error(f"Failed to start Web Dashboard: {e}")
-    else:
-        logger.info("🌍 Web Dashboard is disabled")
+            logger.error(f"Web Dashboard не запустился: {e}")
 
-    # 4. Мониторинг и Стримеры
-    monitor_task = asyncio.create_task(monitor_points_progress())
-    
-    tasks = [monitor_task]
-    for streamer in streamer_names:
-        tasks.append(asyncio.create_task(handle_streamer(streamer)))
-    
-    await asyncio.gather(*tasks)
+    # 6. Отправка startup уведомлений
+    if discord_hook.enabled:
+        discord_hook.send_startup(
+            account_manager.get_all_status()
+        )
+
+    if log_memory_usage:
+        asyncio.create_task(log_memory_usage(interval=60))
+        logger.info("📊 Memory Monitor: ЗАПУЩЕН")
+
+    # 7. Запуск всех аккаунтов
+    await account_manager.start_all()
+
 
 if __name__ == "__main__":
-    
     while True:
         try:
-            logger.info("🚀 Starting Miner...")
+            logger.info("🚀 Запуск Miner...")
             asyncio.run(main())
         except KeyboardInterrupt:
-            logger.info("👋 Stopped by user")
+            logger.info("👋 Остановлено пользователем")
+            if discord_hook and discord_hook.enabled:
+                discord_hook.send_restart("User stopped (Ctrl+C)")
             sys.exit(0)
         except SystemExit:
-            # Этот блок ловит sys.exit(1) из Telegram бота
-            logger.info("🔄 Restarting via SystemExit request...")
+            logger.info("🔄 Перезапуск по SystemExit...")
+            if discord_hook and discord_hook.enabled:
+                discord_hook.send_restart("SystemExit")
         except Exception as e:
-            logger.critical(f"🔥 Fatal crash: {e}")
+            logger.critical(f"🔥 Критическая ошибка: {e}")
             traceback.print_exc()
-        
-        logger.info("🔄 Rebooting in 5 seconds...")
-        time.sleep(5)
+            if discord_hook and discord_hook.enabled:
+                discord_hook.send_error("System", "main.py", str(e))
 
+        logger.info("🔄 Перезапуск через 5 секунд...")
+        time.sleep(5)
