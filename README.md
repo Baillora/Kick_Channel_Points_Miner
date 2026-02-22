@@ -13,7 +13,7 @@ A powerful, asynchronous bot for automatically farming channel points on **Kick.
 
 *   **👥 Multi-Account Support:** Farm points with up to 10+ accounts simultaneously, each with its own streamer list and limits.
 *   **🎯 Priority System:** Streamers are prioritized by their position in the config. Higher-priority streamers automatically replace lower-priority ones when they go live.
-*   **🔒 Concurrent Limits:** Set `max_concurrent` per account to control how many streamers are watched at once — prevents 403 rate-limiting.
+*   **🔒 Concurrent Limits:** Set `max_concurrent` per account to control how many streamers are watched at once – prevents 403 rate-limiting.
 *   **🌐 SOCKS5/HTTP Proxy:** Global or per-account proxy support to avoid IP blocks.
 *   **🛡️ Cloudflare Bypass:** Built-in `curl_cffi` based session management with automatic retry on 403.
 *   **🖥️ Web Dashboard:** Beautiful real-time dashboard showing all accounts, priorities, points, and streamer statuses with direct links to streams.
@@ -24,7 +24,7 @@ A powerful, asynchronous bot for automatically farming channel points on **Kick.
     *   **Remote Control:** Restart the miner via Telegram.
 *   **🌐 Multi-language:** Support for English and Russian.
 *   **📉 Smart Logging:** Clean console output with optional Debug mode.
-*   **♻️ Memory-Safe:** Sessions are reused and properly closed — no memory leaks during long runs.
+*   **♻️ Memory-Safe:** Sessions are reused and properly closed – no memory leaks during long runs.
 
 ---
 
@@ -213,7 +213,7 @@ The bot will:
 
 ### 🟣 Discord Webhook
 
-Send real-time notifications to any Discord channel via webhooks — no bot required!
+Send real-time notifications to any Discord channel via webhooks – no bot required!
 
 **Setup:**
 1. In your Discord server, go to **Channel Settings → Integrations → Webhooks**
@@ -319,7 +319,7 @@ Kick_Channel_Points_Miner/
 
 ## 🐳 Docker & Portainer Deployment
 
-This is the recommended way to run the miner headlessly — great for home servers, NAS devices, or any machine running **Portainer**.
+This is the recommended way to run the miner headlessly – great for home servers, NAS devices, or any machine running **Portainer**.
 
 ### Prerequisites
 * [Docker](https://docs.docker.com/get-docker/) installed (Desktop or Engine).
@@ -327,7 +327,7 @@ This is the recommended way to run the miner headlessly — great for home serve
 
 ---
 
-### Option 1 — Docker CLI (quick)
+### Option 1 – Docker CLI (quick)
 
 ```bash
 # 1. Build the image (run from the project root)
@@ -346,7 +346,7 @@ Dashboard → **http://localhost:5000**
 
 ---
 
-### Option 2 — Docker Compose
+### Option 2 – Docker Compose
 
 ```bash
 # Make sure config.json is in the same folder as docker-compose.yml
@@ -358,13 +358,13 @@ View logs: `docker compose logs -f`
 
 ---
 
-### Option 3 — Portainer (GUI, beginner-friendly)
+### Option 3 – Portainer (GUI, beginner-friendly)
 
 1. Open Portainer and select your environment.
 2. Go to **Stacks → Add stack**.
 3. Give it a name (e.g. `kick-miner`).
 4. Paste the contents of `docker-compose.yml` into the **Web editor**.
-5. Scroll down to **Env variables** — no extras needed.
+5. Scroll down to **Env variables** – no extras needed.
 6. Before deploying, make sure `config.json` is on the host where Docker runs.
    Edit the `volumes` line in the compose to use the **absolute path** on your host:
    ```yaml
