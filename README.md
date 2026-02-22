@@ -317,6 +317,82 @@ Kick_Channel_Points_Miner/
 ```
 ---
 
+## 🐳 Docker & Portainer Deployment
+
+This is the recommended way to run the miner headlessly — great for home servers, NAS devices, or any machine running **Portainer**.
+
+### Prerequisites
+* [Docker](https://docs.docker.com/get-docker/) installed (Desktop or Engine).
+* A working `config.json` (copy `config.example.json` and edit it first).
+
+---
+
+### Option 1 — Docker CLI (quick)
+
+```bash
+# 1. Build the image (run from the project root)
+docker build -t kick-channel-points-miner .
+
+# 2. Start the container
+docker run -d \
+  --name kick-miner \
+  --restart unless-stopped \
+  -v "$(pwd)/config.json:/app/config.json:ro" \
+  -p 5000:5000 \
+  kick-channel-points-miner
+```
+
+Dashboard → **http://localhost:5000**
+
+---
+
+### Option 2 — Docker Compose
+
+```bash
+# Make sure config.json is in the same folder as docker-compose.yml
+docker compose up -d
+```
+
+To stop: `docker compose down`  
+View logs: `docker compose logs -f`
+
+---
+
+### Option 3 — Portainer (GUI, beginner-friendly)
+
+1. Open Portainer and select your environment.
+2. Go to **Stacks → Add stack**.
+3. Give it a name (e.g. `kick-miner`).
+4. Paste the contents of `docker-compose.yml` into the **Web editor**.
+5. Scroll down to **Env variables** — no extras needed.
+6. Before deploying, make sure `config.json` is on the host where Docker runs.
+   Edit the `volumes` line in the compose to use the **absolute path** on your host:
+   ```yaml
+   volumes:
+     - /home/youruser/kick-miner/config.json:/app/config.json:ro
+   ```
+7. Click **Deploy the stack**.
+8. Once running, open `http://<your-server-ip>:5000` to see the Dashboard.
+
+> **Tip:** Portainer will auto-restart the container on crash or server reboot thanks to `restart: unless-stopped`.
+
+---
+
+### Project Structure (with Docker files)
+
+```
+Kick_Channel_Points_Miner/
+├── Dockerfile             # Container build instructions
+├── docker-compose.yml     # Compose file for Docker / Portainer
+├── .dockerignore          # Excludes config.json and dev files from image
+├── config.json            # ← Created by you (bind-mounted, not baked in)
+└── ...
+```
+
+> **Security note:** `config.json` is **never baked into the image**. It is always bind-mounted at runtime so your tokens stay on your host machine only.
+
+---
+
 ## ⚠️ Disclaimer
 
 This software is for educational purposes only. Use it at your own risk. The developer is not responsible for any bans or account restrictions on Kick.com.
