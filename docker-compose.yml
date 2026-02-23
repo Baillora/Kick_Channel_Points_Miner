@@ -11,10 +11,11 @@ services:
     restart: unless-stopped
 
     volumes:
-      - ./config.json:/app/config.json:ro
+      - ${CONFIG_FILE:-./config.json}:/app/config.json:ro
 
     ports:
       - "5000:5000"
 
     environment:
+
       - PYTHONUNBUFFERED=1
