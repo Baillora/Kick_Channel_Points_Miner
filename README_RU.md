@@ -362,19 +362,7 @@ docker compose up -d
 
 ### Вариант 3 – Portainer (GUI, beginner-friendly)
 
-1. Откройте Portainer и выберите вашу среду.
-2. Перейдите в **Stacks → Add stack**.
-3. Дайте ему имя (например, `kick-miner`).
-4. Вставьте содержимое `docker-compose.yml` в **Web editor**.
-5. Прокрутите вниз до **Env variables** – дополнительные настройки не требуются.
-6. Перед развертыванием убедитесь, что `config.json` находится на хосте, где работает Docker.
-   Отредактируйте строку `volumes` в compose, чтобы использовать **абсолютный путь** на вашем хосте:
-   ```yaml
-   volumes:
-     - /home/youruser/kick-miner/config.json:/app/config.json:ro
-   ```
-7. Нажмите **Deploy the stack**.
-8. После запуска откройте `http://<your-server-ip>:5000`, чтобы увидеть панель управления.
+https://github.com/Baillora/Kick_Channel_Points_Miner/issues/4#issuecomment-3944659440
 
 > **Совет:** Portainer автоматически перезапустит контейнер при сбое или перезагрузке сервера благодаря `restart: unless-stopped`.
 
