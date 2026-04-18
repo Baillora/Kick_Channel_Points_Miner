@@ -360,19 +360,7 @@ View logs: `docker compose logs -f`
 
 ### Option 3 – Portainer (GUI, beginner-friendly)
 
-1. Open Portainer and select your environment.
-2. Go to **Stacks → Add stack**.
-3. Give it a name (e.g. `kick-miner`).
-4. Paste the contents of `docker-compose.yml` into the **Web editor**.
-5. Scroll down to **Env variables** – no extras needed.
-6. Before deploying, make sure `config.json` is on the host where Docker runs.
-   Edit the `volumes` line in the compose to use the **absolute path** on your host:
-   ```yaml
-   volumes:
-     - /home/youruser/kick-miner/config.json:/app/config.json:ro
-   ```
-7. Click **Deploy the stack**.
-8. Once running, open `http://<your-server-ip>:5000` to see the Dashboard.
+https://github.com/Baillora/Kick_Channel_Points_Miner/issues/4#issuecomment-3944659440
 
 > **Tip:** Portainer will auto-restart the container on crash or server reboot thanks to `restart: unless-stopped`.
 
